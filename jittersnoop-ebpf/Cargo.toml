@@ -1,0 +1,14 @@
+[package]
+name = "jittersnoop-ebpf"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "jittersnoop-ebpf"
+path = "src/main.rs"
+
+[dependencies]
+jittersnoop-common = { path = "../jittersnoop-common" }
+aya-ebpf = "0.1"
+aya-log-ebpf = "0.1"
+

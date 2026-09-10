@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JitterSnoop Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --surface: #131920;
+    --surface2: #1a2230;
+    --border: #2a3545;
+    --text: #e6edf3;
+    --text-dim: #6e7d8e;
+    --text-mid: #9eaab8;
+    --green: #34d058;
+    --green-dim: rgba(52,208,88,0.15);
+    --yellow: #e3b341;
+    --yellow-dim: rgba(227,179,65,0.15);
+    --red: #ea4a5a;
+    --red-dim: rgba(234,74,90,0.15);
+    --bright-red: #ff6a7a;
+    --bright-red-dim: rgba(255,106,122,0.15);
+    --cyan: #58a6ff;
+    --cyan-dim: rgba(88,166,255,0.1);
+    --purple: #bc8cff;
+    --radius: 10px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.3px;
+  }
+
+  .header h1 .accent { color: var(--cyan); }
+
+  .connection-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface2);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+  }
+
+  .tab {
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .tab:first-child { border-radius: 6px 0 0 6px; }
+  .tab:last-child { border-radius: 0 6px 6px 0; }
+  .tab:not(:first-child) { border-left: none; }
+
+  .tab.active {
+    background: var(--cyan);
+    color: var(--bg);
+    border-color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .tab:hover:not(.active) { background: var(--surface2); color: var(--text); }
+
+  /* Page containers */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ─── OVERVIEW PAGE ─── */
+  .overview {
+    padding: 20px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+
+  /* Stat cards row */
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .stat-card .value {
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 6px;
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    letter-spacing: -0.5px;
+  }
+
+  .stat-card .subtitle {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .stat-card.accent-cyan .value { color: var(--cyan); }
+  .stat-card.accent-green .value { color: var(--green); }
+  .stat-card.accent-yellow .value { color: var(--yellow); }
+  .stat-card.accent-red .value { color: var(--red); }
+
+  /* Main grid: timeline + sidebar */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-header h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .panel-header .badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--cyan-dim);
+    color: var(--cyan);
+    font-weight: 600;
+  }
+
+  .panel-body { padding: 18px; }
+
+  /* Timeline chart */
+  .timeline-canvas-wrap {
+    padding: 14px 18px 10px;
+    position: relative;
+  }
+
+  #timelineCanvas { width: 100%; display: block; }
+
+  /* Bottom grid: aggressors + histogram + severity + alerts */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Aggressors */
+  .aggressor-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(42,53,69,0.5);
+  }
+
+  .aggressor-row:last-child { border-bottom: none; }
+
+  .aggressor-rank {
+    width: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+
+  .aggressor-info { flex: 1; min-width: 0; }
+
+  .aggressor-name {
+    font-weight: 600;
+    color: var(--purple);
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 13px;
+  }
+
+  .aggressor-bar-track {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+  }
+
+  .aggressor-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--purple);
+    transition: width 0.3s;
+  }
+
+  .aggressor-stats {
+    text-align: right;
+    margin-left: 14px;
+    white-space: nowrap;
+  }
+
+  .aggressor-stats .count {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+  }
+
+  .aggressor-stats .stolen {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Severity breakdown */
+  .sev-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .sev-card {
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .sev-card .sev-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sev-card .sev-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sev-card .sev-count {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+  }
+
+  .sev-card .sev-pct {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .sev-card .sev-bar-track {
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .sev-card .sev-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .sev-low  { background: var(--green-dim); }
+  .sev-med  { background: var(--yellow-dim); }
+  .sev-high { background: var(--red-dim); }
+  .sev-crit { background: var(--bright-red-dim); }
+
+  .sev-low  .sev-label, .sev-low  .sev-count { color: var(--green); }
+  .sev-med  .sev-label, .sev-med  .sev-count { color: var(--yellow); }
+  .sev-high .sev-label, .sev-high .sev-count { color: var(--red); }
+  .sev-crit .sev-label, .sev-crit .sev-count { color: var(--bright-red); }
+
+  .sev-low  .sev-bar-fill { background: var(--green); }
+  .sev-med  .sev-bar-fill { background: var(--yellow); }
+  .sev-high .sev-bar-fill { background: var(--red); }
+  .sev-crit .sev-bar-fill { background: var(--bright-red); }
+
+  /* Histogram */
+  #histogramCanvas { width: 100%; display: block; }
+
+  /* Alert feed */
+  .alert-feed { max-height: 260px; overflow-y: auto; }
+
+  .alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(42,53,69,0.5);
+  }
+
+  .alert-item:last-child { border-bottom: none; }
+
+  .alert-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 5px;
+    flex-shrink: 0;
+  }
+
+  .alert-dot.high { background: var(--red); }
+  .alert-dot.crit { background: var(--bright-red); box-shadow: 0 0 6px var(--bright-red); }
+
+  .alert-content { flex: 1; min-width: 0; }
+
+  .alert-headline {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .alert-headline .alert-dur {
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    color: var(--red);
+  }
+
+  .alert-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  /* ─── LIVE EVENTS PAGE ─── */
+  .live-page {
+    height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .live-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .live-toolbar .info {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .btn-group { display: flex; gap: 6px; }
+
+  .btn {
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text-mid);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .btn:hover { background: var(--border); color: var(--text); }
+  .btn.active { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
+
+  .live-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .col-sev { width: 55px; }
+  .col-cpu { width: 44px; text-align: center; }
+  .col-jit { width: 95px; text-align: right; }
+  .col-bar { width: 120px; }
+  .col-vic { width: auto; }
+  .col-agg { width: auto; }
+  .col-ts  { width: 130px; text-align: right; }
+
+  tbody td {
+    padding: 5px 12px;
+    border-bottom: 1px solid rgba(42,53,69,0.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+  }
+
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface2); }
+
+  tbody tr.row-low  td:first-child { color: var(--green); }
+  tbody tr.row-med  td:first-child { color: var(--yellow); }
+  tbody tr.row-high td:first-child { color: var(--red); }
+  tbody tr.row-crit td:first-child { color: var(--bright-red); font-weight: 700; }
+
+  .jitter-val { font-variant-numeric: tabular-nums; }
+  .row-low  .jitter-val { color: var(--green); }
+  .row-med  .jitter-val { color: var(--yellow); }
+  .row-high .jitter-val { color: var(--red); }
+  .row-crit .jitter-val { color: var(--bright-red); }
+
+  .bar-cell { display: flex; align-items: center; height: 14px; }
+  .bar-track { width: 100%; height: 100%; background: rgba(255,255,255,0.04); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; min-width: 2px; transition: width 0.2s; }
+
+  .row-low  .bar-fill { background: var(--green); }
+  .row-med  .bar-fill { background: var(--yellow); }
+  .row-high .bar-fill { background: var(--red); }
+  .row-crit .bar-fill { background: var(--bright-red); box-shadow: 0 0 6px var(--bright-red); }
+
+  td.cpu-cell { text-align: center; color: var(--cyan); }
+  td.ts-cell  { text-align: right; color: var(--text-dim); }
+  .victim   { color: var(--text); }
+  .aggressor { color: var(--purple); }
+
+  .flash { animation: flash-row 0.5s ease-out; }
+  @keyframes flash-row {
+    0%   { background: rgba(88, 166, 255, 0.12); }
+    100% { background: transparent; }
+  }
+
+  /* ─── LAST 24H PAGE ─── */
+  .peak-card {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .peak-body {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 18px !important;
+  }
+
+  .peak-main {
+    text-align: center;
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+
+  .peak-value {
+    font-size: 28px;
+    font-weight: 800;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    color: var(--bright-red);
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+
+  .peak-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+  }
+
+  .peak-details {
+    display: flex;
+    gap: 24px;
+    flex: 1;
+  }
+
+  .peak-detail { display: flex; flex-direction: column; gap: 1px; }
+
+  .peak-detail-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .peak-detail-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+  }
+
+  .peak-detail-value.aggressor { color: var(--purple); }
+
+  .h24-main-grid {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 20px;
+  }
+
+  .h24-refresh-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    color: var(--text-mid);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+
+  .h24-refresh-btn:hover { background: var(--border); color: var(--text); }
+
+  .heatmap-wrap {
+    padding: 14px 18px 10px;
+    position: relative;
+  }
+
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 18px 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  .heatmap-legend-bar {
+    width: 120px;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, #131920, #34d058, #e3b341, #ea4a5a, #ff6a7a);
+  }
+
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .filter-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .sev-toggle {
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+    opacity: 0.4;
+  }
+
+  .sev-toggle.active { opacity: 1; }
+  .sev-toggle[data-sev="low"]  { color: var(--green); border-color: var(--green); }
+  .sev-toggle[data-sev="med"]  { color: var(--yellow); border-color: var(--yellow); }
+  .sev-toggle[data-sev="high"] { color: var(--red); border-color: var(--red); }
+  .sev-toggle[data-sev="crit"] { color: var(--bright-red); border-color: var(--bright-red); }
+  .sev-toggle[data-sev="low"].active  { background: var(--green-dim); }
+  .sev-toggle[data-sev="med"].active  { background: var(--yellow-dim); }
+  .sev-toggle[data-sev="high"].active { background: var(--red-dim); }
+  .sev-toggle[data-sev="crit"].active { background: var(--bright-red-dim); }
+
+  .filter-input {
+    padding: 4px 10px;
+    font-size: 12px;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    outline: none;
+    width: 160px;
+    transition: border-color 0.15s;
+  }
+
+  .filter-input:focus { border-color: var(--cyan); }
+  .filter-input::placeholder { color: var(--text-dim); }
+
+  .filter-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  .worst-table-wrap {
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
+  .worst-table-wrap table { table-layout: auto; }
+
+  .worst-table-wrap thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  .worst-table-wrap tbody td {
+    padding: 6px 14px;
+    border-bottom: 1px solid rgba(42,53,69,0.3);
+    white-space: nowrap;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+  }
+
+  .worst-table-wrap tbody tr:hover { background: var(--surface2); }
+
+  @media (max-width: 1100px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .h24-main-grid { grid-template-columns: 1fr; }
+    .stat-row { grid-template-columns: repeat(3, 1fr); }
+    .peak-body { flex-direction: column; gap: 12px; }
+    .peak-details { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1><span class="accent">Jitter</span>Snoop</h1>
+    <div class="tabs">
+      <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+      <button class="tab" data-tab="live" onclick="switchTab('live')">Live Events</button>
+      <button class="tab" data-tab="history24h" onclick="switchTab('history24h')">Last 24h</button>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="headerClock" style="font-family:'SF Mono','Cascadia Code',monospace;font-size:12px;color:var(--text-mid);letter-spacing:0.5px;"></span>
+    <div class="connection-badge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+  </div>
+</div>
+
+<!-- ─── OVERVIEW PAGE ─── -->
+<div class="page active" id="pageOverview">
+<div class="overview">
+
+  <!-- Stat cards -->
+  <div class="stat-row">
+    <div class="stat-card accent-cyan">
+      <div class="label">Total Events</div>
+      <div class="value" id="statTotal">0</div>
+      <div class="subtitle" id="statRateSub">0 events/sec</div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="label">P50 Latency</div>
+      <div class="value" id="statP50">-</div>
+      <div class="subtitle">Median jitter</div>
+    </div>
+    <div class="stat-card accent-yellow">
+      <div class="label">P99 Latency</div>
+      <div class="value" id="statP99">-</div>
+      <div class="subtitle">Tail latency</div>
+    </div>
+    <div class="stat-card accent-red">
+      <div class="label">Max Latency</div>
+      <div class="value" id="statMax">-</div>
+      <div class="subtitle">Worst case</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Critical</div>
+      <div class="value" id="statCritCount" style="color:var(--bright-red)">0</div>
+      <div class="subtitle">Events &gt; 1ms</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Monitoring Since</div>
+      <div class="value" id="statUptime" style="color:var(--text-mid);font-size:18px">-</div>
+      <div class="subtitle" id="statUptimeSub">-</div>
+    </div>
+  </div>
+
+  <!-- Timeline + Severity sidebar -->
+  <div class="main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Jitter Timeline</h2>
+        <span class="badge" id="timelineRate">0 evt/s</span>
+      </div>
+      <div class="timeline-canvas-wrap">
+        <canvas id="timelineCanvas" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Severity Breakdown</h2>
+      </div>
+      <div class="panel-body">
+        <div class="sev-grid">
+          <div class="sev-card sev-low">
+            <div class="sev-top">
+              <span class="sev-label">Low</span>
+              <span class="sev-count" id="sevLowCount">0</span>
+            </div>
+            <div class="sev-pct" id="sevLowPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="sevLowBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-med">
+            <div class="sev-top">
+              <span class="sev-label">Medium</span>
+              <span class="sev-count" id="sevMedCount">0</span>
+            </div>
+            <div class="sev-pct" id="sevMedPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="sevMedBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-high">
+            <div class="sev-top">
+              <span class="sev-label">High</span>
+              <span class="sev-count" id="sevHighCount">0</span>
+            </div>
+            <div class="sev-pct" id="sevHighPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="sevHighBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-crit">
+            <div class="sev-top">
+              <span class="sev-label">Critical</span>
+              <span class="sev-count" id="sevCritCount">0</span>
+            </div>
+            <div class="sev-pct" id="sevCritPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="sevCritBar" style="width:0"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CPU Heatmap (live) -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>CPU Heatmap</h2>
+      <div class="heatmap-legend">
+        <span>Quiet</span>
+        <div class="heatmap-legend-bar"></div>
+        <span>Critical</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap">
+      <canvas id="cpuHeatmapCanvas" height="100"></canvas>
+    </div>
+  </div>
+
+  <!-- Bottom: Aggressors + Histogram + Alerts -->
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Top Aggressors</h2>
+        <span class="badge" id="aggressorBadge">0 unique</span>
+      </div>
+      <div class="panel-body" id="aggressorBody">
+        <div class="empty-state">Waiting for events...</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Latency Distribution</h2>
+      </div>
+      <div class="timeline-canvas-wrap">
+        <canvas id="histogramCanvas" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent critical alerts -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Recent Alerts</h2>
+      <span class="badge" id="alertBadge">HIGH + CRIT only</span>
+    </div>
+    <div class="panel-body">
+      <div class="alert-feed" id="alertFeed">
+        <div class="empty-state">No high-severity events yet</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ─── LIVE EVENTS PAGE ─── -->
+<div class="page" id="pageLive">
+<div class="live-page">
+  <div class="live-toolbar">
+    <span class="info" id="liveCount">0 events</span>
+    <div class="btn-group">
+      <button class="btn active" id="btnAutoscroll" onclick="toggleAutoscroll()">Auto-scroll</button>
+      <button class="btn" onclick="clearLiveEvents()">Clear</button>
+    </div>
+  </div>
+  <div class="filter-bar">
+    <span class="filter-label">Severity</span>
+    <button class="sev-toggle active" data-sev="low" onclick="toggleSevFilter('low')">LOW</button>
+    <button class="sev-toggle active" data-sev="med" onclick="toggleSevFilter('med')">MED</button>
+    <button class="sev-toggle active" data-sev="high" onclick="toggleSevFilter('high')">HIGH</button>
+    <button class="sev-toggle active" data-sev="crit" onclick="toggleSevFilter('crit')">CRIT</button>
+    <span style="width:1px;height:18px;background:var(--border);"></span>
+    <input class="filter-input" id="filterText" type="text" placeholder="Filter process..." oninput="applyFilters()">
+    <input class="filter-input" id="filterCpu" type="text" placeholder="CPU #" style="width:60px;" oninput="applyFilters()">
+    <span class="filter-count" id="filterCount"></span>
+  </div>
+  <div class="live-table-wrap" id="tableWrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-sev">Sev</th>
+          <th class="col-cpu">CPU</th>
+          <th class="col-jit">Jitter</th>
+          <th class="col-bar">Magnitude</th>
+          <th class="col-vic">Victim</th>
+          <th class="col-agg">Aggressor</th>
+          <th class="col-ts">Timestamp</th>
+        </tr>
+      </thead>
+      <tbody id="eventBody"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- ─── LAST 24H PAGE ─── -->
+<div class="page" id="pageHistory24h">
+<div class="overview">
+
+  <!-- Peak Jitter Callout -->
+  <div class="peak-card">
+    <div class="panel-header">
+      <h2>Peak Jitter Event (Last 24 Hours)</h2>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="badge" id="h24RefreshBadge">Auto-refresh: 30s</span>
+        <button class="h24-refresh-btn" onclick="fetchHistory24h()">Refresh Now</button>
+        <button class="h24-refresh-btn" onclick="downloadCSV()" style="background:var(--cyan-dim);color:var(--cyan);border-color:var(--cyan);">Download CSV</button>
+      </div>
+    </div>
+    <div class="peak-body">
+      <div class="peak-main">
+        <div class="peak-value" id="h24PeakValue">-</div>
+        <div class="peak-label">Maximum Jitter</div>
+      </div>
+      <div class="peak-details">
+        <div class="peak-detail">
+          <span class="peak-detail-label">When</span>
+          <span class="peak-detail-value" id="h24PeakWhen">-</span>
+        </div>
+        <div class="peak-detail">
+          <span class="peak-detail-label">Aggressor</span>
+          <span class="peak-detail-value aggressor" id="h24PeakAggressor">-</span>
+        </div>
+        <div class="peak-detail">
+          <span class="peak-detail-label">Victim</span>
+          <span class="peak-detail-value" id="h24PeakVictim">-</span>
+        </div>
+        <div class="peak-detail">
+          <span class="peak-detail-label">CPU</span>
+          <span class="peak-detail-value" id="h24PeakCpu">-</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stat cards 24h -->
+  <div class="stat-row" style="grid-template-columns: repeat(5, 1fr);">
+    <div class="stat-card accent-cyan">
+      <div class="label">Total Events</div>
+      <div class="value" id="h24StatTotal">0</div>
+      <div class="subtitle">Last 24 hours</div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="label">P50 Latency</div>
+      <div class="value" id="h24StatP50">-</div>
+      <div class="subtitle">Median (approx)</div>
+    </div>
+    <div class="stat-card accent-yellow">
+      <div class="label">P99 Latency</div>
+      <div class="value" id="h24StatP99">-</div>
+      <div class="subtitle">Tail (approx)</div>
+    </div>
+    <div class="stat-card accent-red">
+      <div class="label">Max Latency</div>
+      <div class="value" id="h24StatMax">-</div>
+      <div class="subtitle">Worst case</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Critical</div>
+      <div class="value" id="h24StatCrit" style="color:var(--bright-red)">0</div>
+      <div class="subtitle">Events &gt; 1ms</div>
+    </div>
+  </div>
+
+  <!-- 24h Timeline + Worst Events side by side -->
+  <div class="h24-main-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>24-Hour Jitter Timeline</h2>
+        <span class="badge" id="h24TimelineWindow">-</span>
+      </div>
+      <div class="timeline-canvas-wrap">
+        <canvas id="timeline24hCanvas" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Worst Events</h2>
+        <span class="badge">Top 50</span>
+      </div>
+      <div style="padding:0;">
+        <div class="worst-table-wrap" style="max-height:210px;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30px">#</th>
+                <th>Time</th>
+                <th style="text-align:right">Jitter</th>
+                <th>Aggressor</th>
+              </tr>
+            </thead>
+            <tbody id="h24WorstBody">
+              <tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-dim)">No data yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CPU Heatmap (24h) -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>CPU Heatmap (24h)</h2>
+      <div class="heatmap-legend">
+        <span>Quiet</span>
+        <div class="heatmap-legend-bar"></div>
+        <span>Critical</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap">
+      <canvas id="cpuHeatmap24hCanvas" height="100"></canvas>
+    </div>
+  </div>
+
+  <!-- Aggressors + Severity -->
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Top Aggressors (24h)</h2>
+        <span class="badge" id="h24AggressorBadge">0 unique</span>
+      </div>
+      <div class="panel-body" id="h24AggressorBody">
+        <div class="empty-state">No data yet</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Severity Breakdown (24h)</h2>
+      </div>
+      <div class="panel-body">
+        <div class="sev-grid">
+          <div class="sev-card sev-low">
+            <div class="sev-top">
+              <span class="sev-label">Low</span>
+              <span class="sev-count" id="h24SevLowCount">0</span>
+            </div>
+            <div class="sev-pct" id="h24SevLowPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="h24SevLowBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-med">
+            <div class="sev-top">
+              <span class="sev-label">Medium</span>
+              <span class="sev-count" id="h24SevMedCount">0</span>
+            </div>
+            <div class="sev-pct" id="h24SevMedPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="h24SevMedBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-high">
+            <div class="sev-top">
+              <span class="sev-label">High</span>
+              <span class="sev-count" id="h24SevHighCount">0</span>
+            </div>
+            <div class="sev-pct" id="h24SevHighPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="h24SevHighBar" style="width:0"></div></div>
+          </div>
+          <div class="sev-card sev-crit">
+            <div class="sev-top">
+              <span class="sev-label">Critical</span>
+              <span class="sev-count" id="h24SevCritCount">0</span>
+            </div>
+            <div class="sev-pct" id="h24SevCritPct">0%</div>
+            <div class="sev-bar-track"><div class="sev-bar-fill" id="h24SevCritBar" style="width:0"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const MAX_ROWS = 500;
+const TIMELINE_WINDOW = 120;
+const HISTOGRAM_BUCKETS = 24;
+
+let autoscroll = true;
+let currentTab = 'overview';
+let serverStartMs = 0;
+let totalCount = 0;
+
+fetch('/api/status').then(r => r.json()).then(d => {
+  serverStartMs = d.start_time_ms;
+}).catch(() => { serverStartMs = Date.now(); });
+
+let sevCounts = { low: 0, med: 0, high: 0, crit: 0 };
+let aggressors = {};
+let durations = [];
+let alerts = [];
+let cpuBuckets = {};
+
+// Timeline: per-second buckets
+let timelineBuckets = [];
+let lastBucketTs = 0;
+
+function formatDuration(ns) {
+  if (ns >= 1e9)  return (ns / 1e9).toFixed(2) + 's';
+  if (ns >= 1e6)  return (ns / 1e6).toFixed(2) + 'ms';
+  if (ns >= 1e3)  return (ns / 1e3).toFixed(2) + 'us';
+  return ns + 'ns';
+}
+
+function formatDurationShort(ns) {
+  if (ns >= 1e6)  return (ns / 1e6).toFixed(1) + 'ms';
+  if (ns >= 1e3)  return (ns / 1e3).toFixed(0) + 'us';
+  return ns + 'ns';
+}
+
+function severity(ns) {
+  if (ns < 10000)   return 'low';
+  if (ns < 100000)  return 'med';
+  if (ns < 1000000) return 'high';
+  return 'crit';
+}
+
+function sevLabel(sev) {
+  return { low: 'LOW', med: 'MED', high: 'HIGH', crit: 'CRIT' }[sev];
+}
+
+function barPercent(ns) {
+  if (ns <= 0) return 0;
+  return Math.min(100, Math.max(2, ((Math.log10(ns) - 3) / 4) * 100));
+}
+
+function percentile(sorted, p) {
+  const idx = Math.min(Math.floor(sorted.length * p), sorted.length - 1);
+  return sorted[idx];
+}
+
+let h24RefreshTimer = null;
+const pageMap = { overview: 'pageOverview', live: 'pageLive', history24h: 'pageHistory24h' };
+
+// Tab switching
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+  const btn = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (btn) btn.classList.add('active');
+  const page = document.getElementById(pageMap[tab]);
+  if (page) page.classList.add('active');
+
+  if (tab === 'history24h') {
+    fetchHistory24h();
+    if (h24RefreshTimer) clearInterval(h24RefreshTimer);
+    h24RefreshTimer = setInterval(fetchHistory24h, 30000);
+  } else {
+    if (h24RefreshTimer) { clearInterval(h24RefreshTimer); h24RefreshTimer = null; }
+  }
+}
+
+function toggleAutoscroll() {
+  autoscroll = !autoscroll;
+  document.getElementById('btnAutoscroll').classList.toggle('active', autoscroll);
+}
+
+function clearLiveEvents() {
+  document.getElementById('eventBody').innerHTML = '';
+  liveTotal = 0;
+  document.getElementById('liveCount').textContent = '0 events';
+  document.getElementById('filterCount').textContent = '';
+}
+
+// ─── Process incoming event ───
+function addEvent(e) {
+  totalCount++;
+  const sev = severity(e.duration_ns);
+  sevCounts[sev]++;
+  durations.push(e.duration_ns);
+
+  // Aggressors
+  const name = e.aggressor_comm;
+  if (!aggressors[name]) aggressors[name] = { count: 0, totalNs: 0, maxNs: 0 };
+  aggressors[name].count++;
+  aggressors[name].totalNs += e.duration_ns;
+  if (e.duration_ns > aggressors[name].maxNs) aggressors[name].maxNs = e.duration_ns;
+
+  // Timeline bucket (1-second resolution)
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec !== lastBucketTs) {
+    timelineBuckets.push({ ts: nowSec, count: 0, maxNs: 0, p99Ns: 0, durations: [] });
+    lastBucketTs = nowSec;
+    while (timelineBuckets.length > TIMELINE_WINDOW) timelineBuckets.shift();
+  }
+  const bucket = timelineBuckets[timelineBuckets.length - 1];
+  bucket.count++;
+  bucket.durations.push(e.duration_ns);
+  if (e.duration_ns > bucket.maxNs) bucket.maxNs = e.duration_ns;
+
+  // Per-CPU heatmap tracking
+  const cpuKey = String(e.cpu_id);
+  if (!cpuBuckets[cpuKey]) cpuBuckets[cpuKey] = [];
+  const cpuArr = cpuBuckets[cpuKey];
+  if (cpuArr.length === 0 || cpuArr[cpuArr.length - 1].ts !== nowSec) {
+    cpuArr.push({ ts: nowSec, maxNs: 0, count: 0 });
+    while (cpuArr.length > TIMELINE_WINDOW) cpuArr.shift();
+  }
+  const cpuBkt = cpuArr[cpuArr.length - 1];
+  cpuBkt.count++;
+  if (e.duration_ns > cpuBkt.maxNs) cpuBkt.maxNs = e.duration_ns;
+
+  // Alerts (HIGH and CRIT only)
+  if (sev === 'high' || sev === 'crit') {
+    alerts.unshift({
+      sev, duration_ns: e.duration_ns,
+      victim: e.victim_comm + ':' + e.victim_pid,
+      aggressor: e.aggressor_comm + ':' + e.aggressor_pid,
+      cpu: e.cpu_id, ts: Date.now()
+    });
+    if (alerts.length > 50) alerts.pop();
+  }
+
+  // Live event table row
+  addLiveRow(e, sev);
+}
+
+let sevFilters = { low: true, med: true, high: true, crit: true };
+let liveTotal = 0;
+
+function toggleSevFilter(sev) {
+  sevFilters[sev] = !sevFilters[sev];
+  document.querySelector(`.sev-toggle[data-sev="${sev}"]`).classList.toggle('active', sevFilters[sev]);
+  applyFilters();
+}
+
+function applyFilters() {
+  const textFilter = (document.getElementById('filterText').value || '').toLowerCase();
+  const cpuFilter = (document.getElementById('filterCpu').value || '').trim();
+  const rows = document.getElementById('eventBody').children;
+  let visible = 0;
+
+  for (const tr of rows) {
+    const sev = tr.dataset.sev;
+    const cpu = tr.dataset.cpu;
+    const procs = tr.dataset.procs;
+
+    let show = sevFilters[sev];
+    if (show && textFilter && !procs.includes(textFilter)) show = false;
+    if (show && cpuFilter && cpu !== cpuFilter) show = false;
+
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  }
+
+  const countEl = document.getElementById('filterCount');
+  if (textFilter || cpuFilter || !sevFilters.low || !sevFilters.med || !sevFilters.high || !sevFilters.crit) {
+    countEl.textContent = visible + ' / ' + liveTotal + ' shown';
+  } else {
+    countEl.textContent = '';
+  }
+}
+
+function matchesFilter(sev, cpu, procs) {
+  if (!sevFilters[sev]) return false;
+  const textFilter = (document.getElementById('filterText').value || '').toLowerCase();
+  const cpuFilter = (document.getElementById('filterCpu').value || '').trim();
+  if (textFilter && !procs.includes(textFilter)) return false;
+  if (cpuFilter && String(cpu) !== cpuFilter) return false;
+  return true;
+}
+
+function addLiveRow(e, sev) {
+  const tbody = document.getElementById('eventBody');
+  const tr = document.createElement('tr');
+  tr.className = 'row-' + sev + ' flash';
+  tr.dataset.sev = sev;
+  tr.dataset.cpu = String(e.cpu_id);
+  tr.dataset.procs = (e.victim_comm + ' ' + e.aggressor_comm + ' ' + e.victim_pid + ' ' + e.aggressor_pid).toLowerCase();
+
+  const tsSecs = Math.floor(e.timestamp_ns / 1e9);
+  const tsMs = Math.floor((e.timestamp_ns % 1e9) / 1e6);
+
+  tr.innerHTML =
+    '<td>' + sevLabel(sev) + '</td>' +
+    '<td class="cpu-cell">' + e.cpu_id + '</td>' +
+    '<td class="jitter-val" style="text-align:right">' + formatDuration(e.duration_ns) + '</td>' +
+    '<td><div class="bar-cell"><div class="bar-track"><div class="bar-fill" style="width:' + barPercent(e.duration_ns) + '%"></div></div></div></td>' +
+    '<td><span class="victim">' + e.victim_comm + ':' + e.victim_pid + '</span></td>' +
+    '<td><span class="aggressor">' + e.aggressor_comm + ':' + e.aggressor_pid + '</span></td>' +
+    '<td class="ts-cell">' + tsSecs + '.' + String(tsMs).padStart(3, '0') + '</td>';
+
+  if (!matchesFilter(sev, e.cpu_id, tr.dataset.procs)) {
+    tr.style.display = 'none';
+  }
+
+  tbody.appendChild(tr);
+  liveTotal++;
+
+  while (tbody.children.length > MAX_ROWS) {
+    tbody.removeChild(tbody.firstChild);
+    liveTotal--;
+  }
+
+  if (autoscroll && currentTab === 'live') {
+    const wrap = document.getElementById('tableWrap');
+    wrap.scrollTop = wrap.scrollHeight;
+  }
+
+  document.getElementById('liveCount').textContent = liveTotal + ' events';
+  applyFilters();
+}
+
+// ─── Update overview panels (called at 2Hz) ───
+function formatUptime(ms) {
+  const secs = Math.floor(ms / 1000);
+  const d = Math.floor(secs / 86400);
+  const h = Math.floor((secs % 86400) / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (d > 0) return d + 'd ' + h + 'h ' + m + 'm';
+  if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+
+function updateOverview() {
+  const elapsed = serverStartMs > 0 ? (Date.now() - serverStartMs) / 1000 : 0;
+  const rate = elapsed > 0 ? (totalCount / elapsed) : 0;
+
+  document.getElementById('statTotal').textContent = totalCount.toLocaleString();
+  document.getElementById('statRateSub').textContent = rate.toFixed(1) + ' events/sec';
+  document.getElementById('timelineRate').textContent = rate.toFixed(1) + ' evt/s';
+  document.getElementById('statCritCount').textContent = sevCounts.crit.toLocaleString();
+
+  if (serverStartMs > 0) {
+    const startDate = new Date(serverStartMs);
+    document.getElementById('statUptime').textContent =
+      startDate.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+      startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('statUptimeSub').textContent =
+      formatUptime(Date.now() - serverStartMs) + ' ago';
+  }
+
+  if (durations.length > 0) {
+    const sorted = [...durations].sort((a, b) => a - b);
+    document.getElementById('statP50').textContent = formatDuration(percentile(sorted, 0.5));
+    document.getElementById('statP99').textContent = formatDuration(percentile(sorted, 0.99));
+    document.getElementById('statMax').textContent = formatDuration(sorted[sorted.length - 1]);
+  }
+
+  updateSeverity();
+  updateAggressors();
+  drawTimeline();
+  drawHistogram();
+  updateAlerts();
+  drawCpuHeatmapLive();
+}
+
+function updateSeverity() {
+  const total = sevCounts.low + sevCounts.med + sevCounts.high + sevCounts.crit;
+  const pct = v => total > 0 ? ((v / total) * 100).toFixed(1) + '%' : '0%';
+  const pctNum = v => total > 0 ? ((v / total) * 100).toFixed(0) + '%' : '0%';
+
+  ['low', 'med', 'high', 'crit'].forEach(s => {
+    const key = s.charAt(0).toUpperCase() + s.slice(1);
+    const count = sevCounts[s];
+    document.getElementById('sev' + key + 'Count').textContent = count.toLocaleString();
+    document.getElementById('sev' + key + 'Pct').textContent = pct(count) + ' of total';
+    document.getElementById('sev' + key + 'Bar').style.width = pctNum(count);
+  });
+}
+
+function updateAggressors() {
+  const sorted = Object.entries(aggressors).sort((a, b) => b[1].totalNs - a[1].totalNs);
+  const maxStolen = sorted.length > 0 ? sorted[0][1].totalNs : 1;
+
+  document.getElementById('aggressorBadge').textContent = sorted.length + ' unique';
+
+  if (sorted.length === 0) {
+    document.getElementById('aggressorBody').innerHTML = '<div class="empty-state">Waiting for events...</div>';
+    return;
+  }
+
+  const top = sorted.slice(0, 8);
+  let html = '';
+  top.forEach(([name, d], i) => {
+    const pct = ((d.totalNs / maxStolen) * 100).toFixed(0);
+    html += '<div class="aggressor-row">' +
+      '<div class="aggressor-rank">#' + (i + 1) + '</div>' +
+      '<div class="aggressor-info">' +
+        '<div class="aggressor-name">' + name + '</div>' +
+        '<div class="aggressor-bar-track"><div class="aggressor-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '</div>' +
+      '<div class="aggressor-stats">' +
+        '<div class="count">' + d.count + '</div>' +
+        '<div class="stolen">' + formatDurationShort(d.totalNs) + ' stolen</div>' +
+      '</div>' +
+    '</div>';
+  });
+
+  document.getElementById('aggressorBody').innerHTML = html;
+}
+
+function updateAlerts() {
+  const feed = document.getElementById('alertFeed');
+  if (alerts.length === 0) {
+    feed.innerHTML = '<div class="empty-state">No high-severity events yet</div>';
+    return;
+  }
+
+  const visible = alerts.slice(0, 20);
+  let html = '';
+  visible.forEach(a => {
+    const ago = Math.floor((Date.now() - a.ts) / 1000);
+    const agoStr = ago < 60 ? ago + 's ago' : Math.floor(ago / 60) + 'm ago';
+    html += '<div class="alert-item">' +
+      '<div class="alert-dot ' + a.sev + '"></div>' +
+      '<div class="alert-content">' +
+        '<div class="alert-headline"><span class="alert-dur">' + formatDuration(a.duration_ns) + '</span> preemption on CPU ' + a.cpu + '</div>' +
+        '<div class="alert-meta">' + a.aggressor + ' stole from ' + a.victim + ' &middot; ' + agoStr + '</div>' +
+      '</div>' +
+    '</div>';
+  });
+  feed.innerHTML = html;
+}
+
+// ─── Timeline chart ───
+function drawTimeline() {
+  const canvas = document.getElementById('timelineCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const H = 200;
+
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (timelineBuckets.length < 2) {
+    ctx.fillStyle = '#6e7d8e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Collecting data...', W / 2, H / 2);
+    return;
+  }
+
+  const padL = 60, padR = 16, padT = 24, padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Compute per-bucket max
+  let maxVal = 0;
+  for (const b of timelineBuckets) {
+    if (b.maxNs > maxVal) maxVal = b.maxNs;
+  }
+  if (maxVal === 0) maxVal = 1000;
+
+  const logMax = Math.log10(maxVal);
+  const logMin = 3; // 1us floor
+  const logRange = Math.max(logMax - logMin, 1);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(42,53,69,0.6)';
+  ctx.lineWidth = 0.5;
+  const gridLevels = [1e3, 1e4, 1e5, 1e6, 1e7];
+  ctx.font = '10px SF Mono, monospace';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.textAlign = 'right';
+
+  for (const lv of gridLevels) {
+    if (lv > maxVal * 2) continue;
+    const y = padT + plotH - ((Math.log10(lv) - logMin) / logRange) * plotH;
+    if (y < padT || y > padT + plotH) continue;
+    ctx.beginPath();
+    ctx.setLineDash([3, 3]);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText(formatDurationShort(lv), padL - 8, y + 3);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#6e7d8e';
+  const now = timelineBuckets[timelineBuckets.length - 1].ts;
+  for (let i = 0; i < timelineBuckets.length; i += Math.max(1, Math.floor(timelineBuckets.length / 6))) {
+    const x = padL + (i / (TIMELINE_WINDOW - 1)) * plotW;
+    const ago = now - timelineBuckets[i].ts;
+    ctx.fillText(ago > 0 ? '-' + ago + 's' : 'now', x, H - 8);
+  }
+  // Always label "now"
+  ctx.fillText('now', padL + plotW, H - 8);
+
+  // Severity threshold lines
+  const thresholds = [
+    { ns: 1e4, color: 'rgba(227,179,65,0.3)', label: '10us' },
+    { ns: 1e5, color: 'rgba(234,74,90,0.3)', label: '100us' },
+    { ns: 1e6, color: 'rgba(255,106,122,0.3)', label: '1ms' },
+  ];
+
+  for (const t of thresholds) {
+    const y = padT + plotH - ((Math.log10(t.ns) - logMin) / logRange) * plotH;
+    if (y < padT || y > padT + plotH) continue;
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.setLineDash([6, 4]);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw max line (area fill)
+  ctx.beginPath();
+  for (let i = 0; i < timelineBuckets.length; i++) {
+    const x = padL + (i / (TIMELINE_WINDOW - 1)) * plotW;
+    const val = timelineBuckets[i].maxNs || 1000;
+    const y = padT + plotH - ((Math.log10(val) - logMin) / logRange) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  // Fill under
+  const lastX = padL + ((timelineBuckets.length - 1) / (TIMELINE_WINDOW - 1)) * plotW;
+  ctx.lineTo(lastX, padT + plotH);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.closePath();
+
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, 'rgba(234,74,90,0.25)');
+  grad.addColorStop(0.5, 'rgba(227,179,65,0.10)');
+  grad.addColorStop(1, 'rgba(52,208,88,0.05)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Max line stroke
+  ctx.beginPath();
+  for (let i = 0; i < timelineBuckets.length; i++) {
+    const x = padL + (i / (TIMELINE_WINDOW - 1)) * plotW;
+    const val = timelineBuckets[i].maxNs || 1000;
+    const y = padT + plotH - ((Math.log10(val) - logMin) / logRange) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(234,74,90,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Draw dots for CRIT events
+  for (let i = 0; i < timelineBuckets.length; i++) {
+    if (timelineBuckets[i].maxNs >= 1e6) {
+      const x = padL + (i / (TIMELINE_WINDOW - 1)) * plotW;
+      const y = padT + plotH - ((Math.log10(timelineBuckets[i].maxNs) - logMin) / logRange) * plotH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff6a7a';
+      ctx.fill();
+    }
+  }
+
+  // Title
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Max jitter per second (log scale)', padL, 14);
+}
+
+// ─── Histogram ───
+function drawHistogram() {
+  const canvas = document.getElementById('histogramCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const H = 180;
+
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (durations.length < 2) {
+    ctx.fillStyle = '#6e7d8e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Collecting data...', W / 2, H / 2);
+    return;
+  }
+
+  const padL = 14, padR = 14, padT = 20, padB = 28;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const logDs = durations.map(d => d > 0 ? Math.log10(d) : 0);
+  const minLog = Math.min(...logDs);
+  const maxLog = Math.max(...logDs);
+  const range = maxLog - minLog || 1;
+
+  const buckets = new Array(HISTOGRAM_BUCKETS).fill(0);
+  for (const ld of logDs) {
+    const idx = Math.min(Math.floor(((ld - minLog) / range) * HISTOGRAM_BUCKETS), HISTOGRAM_BUCKETS - 1);
+    buckets[idx]++;
+  }
+
+  const maxBucket = Math.max(...buckets);
+  const barW = plotW / HISTOGRAM_BUCKETS;
+  const colors = ['#34d058', '#e3b341', '#ea4a5a', '#ff6a7a'];
+
+  for (let i = 0; i < HISTOGRAM_BUCKETS; i++) {
+    const barH = maxBucket > 0 ? (buckets[i] / maxBucket) * plotH : 0;
+    const logCenter = minLog + (i + 0.5) * (range / HISTOGRAM_BUCKETS);
+    const ns = Math.pow(10, logCenter);
+    const ci = ns < 10000 ? 0 : ns < 100000 ? 1 : ns < 1000000 ? 2 : 3;
+
+    const x = padL + i * barW;
+    const y = padT + plotH - barH;
+
+    ctx.fillStyle = colors[ci];
+    ctx.beginPath();
+    ctx.roundRect(x + 1, y, barW - 2, barH, [2, 2, 0, 0]);
+    ctx.fill();
+  }
+
+  // Labels
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px SF Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(formatDurationShort(Math.pow(10, minLog)), padL, H - 6);
+  ctx.textAlign = 'right';
+  ctx.fillText(formatDurationShort(Math.pow(10, maxLog)), W - padR, H - 6);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.fillText('Latency distribution (log scale)', W / 2, 12);
+}
+
+// ─── CPU Heatmap ───
+function heatmapColor(maxNs) {
+  if (maxNs === 0) return 'rgba(19,25,32,0.8)';
+  const log = Math.log10(maxNs);
+  const t = Math.max(0, Math.min(1, (log - 3) / 4));
+  if (t < 0.25) return `rgba(52,208,88,${0.2 + t * 2.4})`;
+  if (t < 0.5)  return `rgba(227,179,65,${0.3 + (t - 0.25) * 2.8})`;
+  if (t < 0.75) return `rgba(234,74,90,${0.4 + (t - 0.5) * 2.4})`;
+  return `rgba(255,106,122,${0.6 + (t - 0.75) * 1.6})`;
+}
+
+function drawCpuHeatmapLive() {
+  const canvas = document.getElementById('cpuHeatmapCanvas');
+  if (!canvas) return;
+  const cpuIds = Object.keys(cpuBuckets).map(Number).sort((a, b) => a - b);
+  if (cpuIds.length === 0) {
+    const ctx2 = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr; canvas.height = 80 * dpr;
+    canvas.style.width = rect.width + 'px'; canvas.style.height = '80px';
+    ctx2.scale(dpr, dpr);
+    ctx2.clearRect(0, 0, rect.width, 80);
+    ctx2.fillStyle = '#6e7d8e'; ctx2.font = '12px -apple-system, sans-serif';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('Waiting for events on multiple CPUs...', rect.width / 2, 40);
+    return;
+  }
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const padL = 50, padR = 10, padT = 6, padB = 24;
+  const cellH = Math.max(14, Math.min(28, Math.floor(180 / cpuIds.length)));
+  const H = padT + cpuIds.length * cellH + padB;
+
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const plotW = W - padL - padR;
+  const cols = TIMELINE_WINDOW;
+  const cellW = plotW / cols;
+  const now = timelineBuckets.length > 0 ? timelineBuckets[timelineBuckets.length - 1].ts : Math.floor(Date.now() / 1000);
+
+  // CPU labels
+  ctx.font = '10px SF Mono, monospace';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.textAlign = 'right';
+  cpuIds.forEach((cpu, row) => {
+    ctx.fillText('CPU ' + cpu, padL - 6, padT + row * cellH + cellH / 2 + 3);
+  });
+
+  // Cells
+  cpuIds.forEach((cpu, row) => {
+    const arr = cpuBuckets[String(cpu)] || [];
+    const tsMap = {};
+    for (const b of arr) tsMap[b.ts] = b;
+
+    for (let col = 0; col < cols; col++) {
+      const ts = now - (cols - 1 - col);
+      const b = tsMap[ts];
+      const x = padL + col * cellW;
+      const y = padT + row * cellH;
+      ctx.fillStyle = b ? heatmapColor(b.maxNs) : 'rgba(19,25,32,0.4)';
+      ctx.fillRect(x, y, cellW - 1, cellH - 1);
+    }
+  });
+
+  // X-axis labels
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  const labelY = padT + cpuIds.length * cellH + 16;
+  for (let i = 0; i <= 4; i++) {
+    const col = Math.floor(i * (cols - 1) / 4);
+    const x = padL + col * cellW + cellW / 2;
+    const ago = cols - 1 - col;
+    ctx.fillText(ago > 0 ? '-' + ago + 's' : 'now', x, labelY);
+  }
+}
+
+function drawCpuHeatmap24h(cpuHeatmapData, minutes) {
+  const canvas = document.getElementById('cpuHeatmap24hCanvas');
+  if (!canvas) return;
+
+  if (!cpuHeatmapData || cpuHeatmapData.length === 0 || minutes.length < 2) {
+    const ctx2 = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr; canvas.height = 80 * dpr;
+    canvas.style.width = rect.width + 'px'; canvas.style.height = '80px';
+    ctx2.scale(dpr, dpr);
+    ctx2.clearRect(0, 0, rect.width, 80);
+    ctx2.fillStyle = '#6e7d8e'; ctx2.font = '12px -apple-system, sans-serif';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('Not enough data yet', rect.width / 2, 40);
+    return;
+  }
+
+  // Build lookup: { "cpu_id:minute_ts" -> max_ns }
+  const lookup = {};
+  const cpuSet = new Set();
+  for (const d of cpuHeatmapData) {
+    lookup[d.cpu_id + ':' + d.minute_ts] = d.max_ns;
+    cpuSet.add(d.cpu_id);
+  }
+  const cpuIds = [...cpuSet].sort((a, b) => a - b);
+  const minuteTs = minutes.map(m => m.minute_ts);
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const padL = 50, padR = 10, padT = 6, padB = 24;
+  const cellH = Math.max(14, Math.min(28, Math.floor(180 / cpuIds.length)));
+  const H = padT + cpuIds.length * cellH + padB;
+  const plotW = W - padL - padR;
+  const cellW = Math.max(1, plotW / minuteTs.length);
+
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  // CPU labels
+  ctx.font = '10px SF Mono, monospace';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.textAlign = 'right';
+  cpuIds.forEach((cpu, row) => {
+    ctx.fillText('CPU ' + cpu, padL - 6, padT + row * cellH + cellH / 2 + 3);
+  });
+
+  // Cells
+  cpuIds.forEach((cpu, row) => {
+    minuteTs.forEach((ts, col) => {
+      const maxNs = lookup[cpu + ':' + ts] || 0;
+      const x = padL + col * cellW;
+      const y = padT + row * cellH;
+      ctx.fillStyle = maxNs > 0 ? heatmapColor(maxNs) : 'rgba(19,25,32,0.4)';
+      ctx.fillRect(x, y, cellW - (cellW > 3 ? 1 : 0), cellH - 1);
+    });
+  });
+
+  // X-axis labels
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  const labelY = padT + cpuIds.length * cellH + 16;
+  const n = minuteTs.length;
+  const step = Math.max(1, Math.floor(n / 6));
+  for (let i = 0; i < n; i += step) {
+    const x = padL + (i / (n - 1)) * plotW;
+    const d = new Date(minuteTs[i] * 1000);
+    ctx.fillText(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), x, labelY);
+  }
+}
+
+// ─── SSE ───
+let updateTimer = null;
+function connect() {
+  const evtSource = new EventSource('/events');
+
+  evtSource.onopen = () => {
+    document.getElementById('statusDot').classList.add('connected');
+    document.getElementById('statusText').textContent = 'Streaming';
+  };
+
+  evtSource.onmessage = (msg) => {
+    try {
+      addEvent(JSON.parse(msg.data));
+    } catch (_) {}
+  };
+
+  evtSource.onerror = () => {
+    document.getElementById('statusDot').classList.remove('connected');
+    document.getElementById('statusText').textContent = 'Reconnecting...';
+    evtSource.close();
+    setTimeout(connect, 2000);
+  };
+
+  if (updateTimer) clearInterval(updateTimer);
+  updateTimer = setInterval(updateOverview, 500);
+}
+
+connect();
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('headerClock').textContent =
+    now.toLocaleDateString([], { month:'short', day:'numeric' }) + ' ' +
+    now.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ─── Last 24h ───
+async function fetchHistory24h() {
+  try {
+    const resp = await fetch('/api/history24h');
+    const data = await resp.json();
+    renderHistory24h(data);
+  } catch (e) {
+    console.error('Failed to fetch 24h history:', e);
+  }
+}
+
+function renderHistory24h(data) {
+  const s = data.summary;
+
+  // Peak event
+  document.getElementById('h24PeakValue').textContent = s.max_ns > 0 ? formatDuration(s.max_ns) : '-';
+  document.getElementById('h24PeakWhen').textContent = s.max_wall_time_ms > 0
+    ? new Date(s.max_wall_time_ms).toLocaleString() : '-';
+  document.getElementById('h24PeakAggressor').textContent = s.max_aggressor || '-';
+  document.getElementById('h24PeakVictim').textContent = s.max_victim || '-';
+  document.getElementById('h24PeakCpu').textContent = s.max_cpu !== undefined && s.max_ns > 0 ? 'CPU ' + s.max_cpu : '-';
+
+  // Stat cards
+  document.getElementById('h24StatTotal').textContent = s.total_events.toLocaleString();
+  document.getElementById('h24StatP50').textContent = s.approx_p50_ns > 0 ? formatDuration(s.approx_p50_ns) : '-';
+  document.getElementById('h24StatP99').textContent = s.approx_p99_ns > 0 ? formatDuration(s.approx_p99_ns) : '-';
+  document.getElementById('h24StatMax').textContent = s.max_ns > 0 ? formatDuration(s.max_ns) : '-';
+  document.getElementById('h24StatCrit').textContent = s.sev[3].toLocaleString();
+
+  // Window label
+  if (s.window_start_ms > 0 && s.window_end_ms > 0) {
+    const start = new Date(s.window_start_ms).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const end = new Date(s.window_end_ms).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    document.getElementById('h24TimelineWindow').textContent = start + ' – ' + end;
+  }
+
+  // Severity breakdown
+  const sevNames = ['Low', 'Med', 'High', 'Crit'];
+  const total = s.sev.reduce((a, b) => a + b, 0);
+  sevNames.forEach((name, i) => {
+    const count = s.sev[i];
+    const pct = total > 0 ? ((count / total) * 100).toFixed(1) : '0';
+    document.getElementById('h24Sev' + name + 'Count').textContent = count.toLocaleString();
+    document.getElementById('h24Sev' + name + 'Pct').textContent = pct + '% of total';
+    document.getElementById('h24Sev' + name + 'Bar').style.width = (total > 0 ? (count / total * 100) : 0) + '%';
+  });
+
+  // Aggressors
+  renderH24Aggressors(data.top_aggressors);
+
+  // Worst events table
+  renderH24Worst(data.worst_events);
+
+  // Timeline chart
+  drawH24Timeline(data.minutes);
+
+  // CPU heatmap
+  drawCpuHeatmap24h(data.cpu_heatmap, data.minutes);
+}
+
+function renderH24Aggressors(aggressors) {
+  const body = document.getElementById('h24AggressorBody');
+  document.getElementById('h24AggressorBadge').textContent = aggressors.length + ' unique';
+
+  if (aggressors.length === 0) {
+    body.innerHTML = '<div class="empty-state">No data yet</div>';
+    return;
+  }
+
+  const maxStolen = aggressors[0].total_ns || 1;
+  const top = aggressors.slice(0, 10);
+  let html = '';
+  top.forEach((a, i) => {
+    const pct = ((a.total_ns / maxStolen) * 100).toFixed(0);
+    html += '<div class="aggressor-row">' +
+      '<div class="aggressor-rank">#' + (i + 1) + '</div>' +
+      '<div class="aggressor-info">' +
+        '<div class="aggressor-name">' + escHtml(a.comm) + '</div>' +
+        '<div class="aggressor-bar-track"><div class="aggressor-bar-fill" style="width:' + pct + '%"></div></div>' +
+      '</div>' +
+      '<div class="aggressor-stats">' +
+        '<div class="count">' + a.count.toLocaleString() + '</div>' +
+        '<div class="stolen">' + formatDurationShort(a.total_ns) + ' stolen</div>' +
+      '</div>' +
+    '</div>';
+  });
+  body.innerHTML = html;
+}
+
+function renderH24Worst(events) {
+  const tbody = document.getElementById('h24WorstBody');
+  if (events.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-dim)">No data yet</td></tr>';
+    return;
+  }
+
+  let html = '';
+  events.forEach((e, i) => {
+    const sev = severity(e.duration_ns);
+    const sevColors = { low: 'var(--green)', med: 'var(--yellow)', high: 'var(--red)', crit: 'var(--bright-red)' };
+    const dt = new Date(e.wall_time_ms);
+    const time = dt.toLocaleDateString([], { month:'short', day:'numeric' }) + ' ' +
+      dt.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    html += '<tr>' +
+      '<td style="color:var(--text-dim)">' + (i + 1) + '</td>' +
+      '<td style="color:var(--text-mid)">' + time + '</td>' +
+      '<td style="text-align:right;color:' + sevColors[sev] + '">' + formatDuration(e.duration_ns) + '</td>' +
+      '<td><span class="aggressor">' + escHtml(e.aggressor_comm) + '</span></td>' +
+    '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+async function downloadCSV() {
+  let data;
+  try {
+    const resp = await fetch('/api/history24h');
+    data = await resp.json();
+  } catch (e) {
+    alert('Failed to fetch data');
+    return;
+  }
+
+  const s = data.summary;
+  const lines = [];
+
+  lines.push('# JitterSnoop - 24 Hour Report');
+  lines.push('# Generated: ' + new Date().toLocaleString());
+  lines.push('# Window: ' + new Date(s.window_start_ms).toLocaleString() + ' to ' + new Date(s.window_end_ms).toLocaleString());
+  lines.push('# Total Events: ' + s.total_events + '  |  Max: ' + formatDuration(s.max_ns) + '  |  P50: ' + formatDuration(s.approx_p50_ns) + '  |  P99: ' + formatDuration(s.approx_p99_ns));
+  lines.push('# Severity: Low=' + s.sev[0] + ' Med=' + s.sev[1] + ' High=' + s.sev[2] + ' Crit=' + s.sev[3]);
+  lines.push('');
+
+  lines.push('# --- Worst Events (Top 50 by duration) ---');
+  lines.push('timestamp,duration_ns,severity,cpu_id,victim_pid,victim_comm,aggressor_pid,aggressor_comm');
+  for (const e of data.worst_events) {
+    const ts = new Date(e.wall_time_ms).toISOString();
+    const sev = severity(e.duration_ns).toUpperCase();
+    lines.push([ts, e.duration_ns, sev, e.cpu_id, e.victim_pid, csvEsc(e.victim_comm), e.aggressor_pid, csvEsc(e.aggressor_comm)].join(','));
+  }
+  lines.push('');
+
+  lines.push('# --- Per-Minute Summary ---');
+  lines.push('minute_timestamp,event_count,max_ns,min_ns,avg_ns,sev_low,sev_med,sev_high,sev_crit');
+  for (const m of data.minutes) {
+    const ts = new Date(m.minute_ts * 1000).toISOString();
+    lines.push([ts, m.count, m.max_ns, m.min_ns, m.avg_ns, m.sev[0], m.sev[1], m.sev[2], m.sev[3]].join(','));
+  }
+  lines.push('');
+
+  lines.push('# --- Top Aggressors ---');
+  lines.push('aggressor_comm,event_count,total_stolen_ns');
+  for (const a of data.top_aggressors) {
+    lines.push([csvEsc(a.comm), a.count, a.total_ns].join(','));
+  }
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const now = new Date();
+  a.download = 'jittersnoop-24h-' + now.toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvEsc(s) {
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function drawH24Timeline(minutes) {
+  const canvas = document.getElementById('timeline24hCanvas');
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = rect.width;
+  const H = 220;
+
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (minutes.length < 2) {
+    ctx.fillStyle = '#6e7d8e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Not enough data yet — keep monitoring', W / 2, H / 2);
+    return;
+  }
+
+  const padL = 64, padR = 16, padT = 28, padB = 34;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  // Compute max
+  let maxVal = 0;
+  for (const m of minutes) { if (m.max_ns > maxVal) maxVal = m.max_ns; }
+  if (maxVal === 0) maxVal = 1000;
+
+  const logMax = Math.log10(maxVal);
+  const logMin = 3;
+  const logRange = Math.max(logMax - logMin, 1);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(42,53,69,0.6)';
+  ctx.lineWidth = 0.5;
+  const gridLevels = [1e3, 1e4, 1e5, 1e6, 1e7];
+  ctx.font = '10px SF Mono, monospace';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.textAlign = 'right';
+
+  for (const lv of gridLevels) {
+    if (lv > maxVal * 2) continue;
+    const y = padT + plotH - ((Math.log10(lv) - logMin) / logRange) * plotH;
+    if (y < padT || y > padT + plotH) continue;
+    ctx.beginPath();
+    ctx.setLineDash([3, 3]);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillText(formatDurationShort(lv), padL - 8, y + 3);
+  }
+
+  // Severity threshold lines
+  const thresholds = [
+    { ns: 1e4, color: 'rgba(227,179,65,0.3)' },
+    { ns: 1e5, color: 'rgba(234,74,90,0.3)' },
+    { ns: 1e6, color: 'rgba(255,106,122,0.3)' },
+  ];
+  for (const t of thresholds) {
+    const y = padT + plotH - ((Math.log10(t.ns) - logMin) / logRange) * plotH;
+    if (y < padT || y > padT + plotH) continue;
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.setLineDash([6, 4]);
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // X-axis time labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  const n = minutes.length;
+  const labelCount = Math.min(8, n);
+  const step = Math.max(1, Math.floor(n / labelCount));
+  for (let i = 0; i < n; i += step) {
+    const x = padL + (i / (n - 1)) * plotW;
+    const d = new Date(minutes[i].minute_ts * 1000);
+    const label = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    ctx.fillText(label, x, H - 8);
+  }
+  // Always label last point
+  {
+    const x = padL + plotW;
+    const d = new Date(minutes[n - 1].minute_ts * 1000);
+    ctx.fillText(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), x, H - 8);
+  }
+
+  // Area fill under max line
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = padL + (i / (n - 1)) * plotW;
+    const val = minutes[i].max_ns || 1000;
+    const y = padT + plotH - ((Math.log10(val) - logMin) / logRange) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  const lastX = padL + plotW;
+  ctx.lineTo(lastX, padT + plotH);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.closePath();
+
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, 'rgba(234,74,90,0.25)');
+  grad.addColorStop(0.5, 'rgba(227,179,65,0.10)');
+  grad.addColorStop(1, 'rgba(52,208,88,0.05)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Max line stroke
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const x = padL + (i / (n - 1)) * plotW;
+    const val = minutes[i].max_ns || 1000;
+    const y = padT + plotH - ((Math.log10(val) - logMin) / logRange) * plotH;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(234,74,90,0.8)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Avg line (dimmer)
+  ctx.beginPath();
+  let hasAvg = false;
+  for (let i = 0; i < n; i++) {
+    if (minutes[i].avg_ns === 0) continue;
+    const x = padL + (i / (n - 1)) * plotW;
+    const val = minutes[i].avg_ns;
+    const y = padT + plotH - ((Math.log10(val) - logMin) / logRange) * plotH;
+    if (!hasAvg) { ctx.moveTo(x, y); hasAvg = true; } else ctx.lineTo(x, y);
+  }
+  if (hasAvg) {
+    ctx.strokeStyle = 'rgba(88,166,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Dots for CRIT minutes
+  for (let i = 0; i < n; i++) {
+    if (minutes[i].max_ns >= 1e6) {
+      const x = padL + (i / (n - 1)) * plotW;
+      const y = padT + plotH - ((Math.log10(minutes[i].max_ns) - logMin) / logRange) * plotH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff6a7a';
+      ctx.fill();
+    }
+  }
+
+  // Title
+  ctx.fillStyle = '#6e7d8e';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Max jitter per minute (log scale) — red: max, blue: avg', padL, 16);
+}
+</script>
+</body>
+</html>

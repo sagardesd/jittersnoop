@@ -1,0 +1,23 @@
+[package]
+name = "jittersnoop"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "jittersnoop"
+path = "src/main.rs"
+
+[dependencies]
+jittersnoop-common = { path = "../jittersnoop-common", features = ["user"] }
+aya = "0.13"
+aya-log = "0.2"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+chrono = "0.4"
+log = "0.4"
+env_logger = "0.11"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio-stream = { version = "0.1", features = ["sync"] }
