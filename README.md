@@ -1,7 +1,10 @@
 # JitterSnoop
 ![](./docs/logo.png)
 
+I wanted to build something with eBPF from long time.
 A zero-overhead scheduling jitter flight recorder for Linux. It uses eBPF to trace when the kernel preempts your latency-critical processes on isolated CPU cores, streaming violations to a real-time web dashboard.
+
+This tool can be used to measure jitters for your high priority engines that you think is only running in a core that you have pinned but silently someone is stealing your cpu.
 
 Built with Rust and [Aya](https://aya-rs.dev).
 
