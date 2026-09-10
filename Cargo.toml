@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "jittersnoop-common",
+    "jittersnoop-ebpf",
+    "jittersnoop",
+]
+
+[profile.dev]
+opt-level = 2
+overflow-checks = false
+
+[profile.release]
+lto = false
+panic = "abort"
