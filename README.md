@@ -1,4 +1,5 @@
 # JitterSnoop
+![](./docs/logo.png)
 
 A zero-overhead scheduling jitter flight recorder for Linux. It uses eBPF to trace when the kernel preempts your latency-critical processes on isolated CPU cores, streaming violations to a real-time web dashboard.
 
