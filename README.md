@@ -212,6 +212,8 @@ The primary view focused on real-time analysis:
 - **Per-CPU heatmap** — real-time heatmap grid showing jitter intensity per CPU over the sliding window, colored from green (quiet) through yellow/red (noisy)
 - **Recent alerts** — only HIGH and CRIT events, with human-readable timestamps
 
+![Overview Page](./docs/OverViewPage.png)
+
 ### Live Events
 
 The raw streaming table for individual event detail — color-coded rows with severity, jitter duration, magnitude bar, victim/aggressor names, and timestamps. Auto-scroll with a 500-row cap.
@@ -233,6 +235,8 @@ Historical analysis of jitter behavior over the past 24 hours, using per-minute 
 - **Severity breakdown** — 24h totals by severity level
 - **Per-CPU heatmap** — historical heatmap showing which cores were noisiest and when
 - **CSV download** — export the full 24h dataset (worst events, per-minute summary, top aggressors) as a CSV file
+
+![Last24Hours](./docs/24hHistory.png)
 
 Auto-refreshes every 30 seconds when the tab is active.
 
