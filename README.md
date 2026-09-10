@@ -2,6 +2,8 @@
 ![](./docs/logo.png)
 
 I wanted to build something with eBPF from long time.
+This is just a hobby project and experimentation with eBPF.
+Feel free to clone and modify as you wish.
 
 JitterSnoop is a zero-overhead scheduling jitter flight recorder for Linux. It uses eBPF to trace when the kernel preempts your latency-critical processes on isolated CPU cores, streaming violations to a real-time web dashboard.
 
