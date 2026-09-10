@@ -31,7 +31,7 @@ Standard debugging tools can't help:
 JitterSnoop hooks into the kernel's `sched/sched_switch` tracepoint using eBPF — the same mechanism the kernel uses internally. It runs at native kernel speed with effectively zero overhead.
 
 ```
-                    ┌─────────────────────────┐
+                    ┌──────────────────────────┐
                     │     Linux Kernel         │
                     │                          │
                     │  sched/sched_switch      │
@@ -49,11 +49,11 @@ JitterSnoop hooks into the kernel's `sched/sched_switch` tracepoint using eBPF �
                     └───────────┼──────────────┘
                                 │
                     ┌───────────▼──────────────┐
-                    │  JitterSnoop Userspace    │
+                    │  JitterSnoop Userspace   │
                     │                          │
-                    │  Ring buffer poller       │
-                    │  Rolling event buffer     │
-                    │  Web dashboard (SSE)      │
+                    │  Ring buffer poller      │
+                    │  Rolling event buffer    │
+                    │  Web dashboard (SSE)     │
                     └──────────────────────────┘
                                 │
                         http://localhost:8080
